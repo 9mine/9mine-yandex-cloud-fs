@@ -1,4 +1,4 @@
-name: Minetest Container Image
+name: Yandex Cloud FileSystem Container Image
 on: push
 jobs:
   build:
