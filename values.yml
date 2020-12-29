@@ -1,0 +1,125 @@
+fs: |
+  {% include './common.j2' %} 
+  fs:
+    # root
+    "/":
+      readdir: 
+        sh: ls /accounts
+      getattr:
+        sh: *dir 
+      # /<id>
+      "/[0-9]+":
+        name: id
+        readdir: 
+          list: 
+            - managed-kubernetes
+            - version
+            - compute
+        getattr: 
+          sh: *dir
+        # /managed-kubernetes
+        "/managed-kubernetes": 
+          readdir: 
+              list: 
+                - cluster
+                - list-versions
+          getattr:
+            sh: *dir
+            
+          # /managed-kubernetes/list-versions
+          "/list-versions":
+              getattr: 
+                sh: *file
+              read_file: 
+                sh: yc managed-kubernetes list-versions
+
+          # /managed-kubernetes/cluster
+          "/cluster":
+              getattr: 
+                sh: *dir
+              readdir:
+                list: 
+                  - list
+                  - get 
+            
+              # /managed-kubernetes/cluster/list
+              "/list":
+                getattr: 
+                  sh: *file 
+                read_file: 
+                  sh: 
+                    
+              
+              # /managed-kubernetes/cluster/get
+              "/get":
+                getattr: 
+                  sh: *dir 
+                readdir: 
+                  sh: yc managed-kubernetes cluster list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq  -r '.[].name'
+
+                # /managed-kubernetes/cluster/get/<cluster_name>
+                "/[a-z0-9-]+":
+                  name: cluser_name
+                  getattr: 
+                    sh: *dir 
+                  readdir: 
+                    sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
+                  
+                  # /managed-kubernetes/cluster/get/<cluster_name>/<cluster_attribute>
+                  "/[a-z0-9_-]+":
+                    name: cluster_attribute
+                    getattr:
+                      sh: *file 
+                    read_file: 
+                      sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${cluster_attribute}''
+
+        # /compute
+        "/compute":
+          readdir:
+            list: 
+                - instance
+          getattr:
+            sh: *dir
+
+          # /compute/instance
+          "/instance":
+            readdir:
+              list: 
+                - list
+                - get 
+            getattr:
+              sh: *dir 
+            # /compute/instance/list
+            "/list":
+              read_file:
+                sh: |
+                  yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud`
+              getattr: 
+                sh: *file 
+            # /compute/instance/get   
+            "/get":
+              getattr: 
+                sh: *dir
+              readdir: 
+                sh: yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.[].name'
+              # /compute/instance/get/<compute_name>
+              "/[a-z0-9-]+":
+                name: compute_name
+                readdir: 
+                  sh: |
+                    yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
+                getattr:
+                  sh: *dir
+                # /compute/instance/get/<compute_name>/<attribute>
+                "/[a-z_]+":
+                  name: attribute
+                  read_file: 
+                    sh: yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${attribute}''
+                  getattr: 
+                    sh: *file
+        # /version
+        "/version":
+          read_file:
+            sh: yc version
+          getattr: 
+            sh: *file
