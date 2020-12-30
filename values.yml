@@ -1,3 +1,31 @@
+replicaCount: 1
+
+image: 
+  repository: 9mine/9mine-yandex-cloud-fs
+  tag: "main"
+  pullPolicy: Always
+
+initContainerImage:
+  repository: 9mine/execfuse-jinja2
+  tag: "master"
+  pullPolicy: Always
+
+serviceAccount:
+  create: false
+
+securityContext: 
+  privileged: true
+  capabilities:
+    add:
+      - SYS_ADMIN
+
+service:
+  type: ClusterIP
+  port: 3000
+
+description: "yandexcloudfs" 
+
+
 fs: |
   {% include './common.j2' %} 
   fs:
@@ -133,8 +161,8 @@ files:
     test -d /mnt/registry || mkdir -p /mnt/registry
     test -d /tmp || mkdir -p /tmp
     mount -A tcp!registry.dev.metacoma.io!30099 /mnt/registry
-    port = 1917
-    fs_port = 2000
+    port = 3000
+    fs_port = 3001
     file2chan /tmp/yc {
         } {
         load mpexpr
@@ -149,10 +177,8 @@ files:
         `{os /bin/bash -c 'echo '^$token^' > /accounts/'^$var^'/token'}
         `{os /bin/bash -c 'echo '^$folder^' > /accounts/'^$var^'/folder'}
         `{os /bin/bash -c 'echo '^$cloud^' > /accounts/'^$var^'/cloud'}
-        grid/reglisten -A -r description 'user id is '^$var tcp!*!^$fs_port { export /export/fs/^$var & } &
+        grid/reglisten -A -r description 'user id is '^$var tcp!*!^$fs_port { export /host/execfuse-fs/^$var & } &
         fs_port=${expr $fs_port 1 +}
         }
-    mkdir -p /export/fs
-    sh -n -c 'os execfuse-static /execfuse-fs /usr/inferno-os/export/fs'
     listen -A -t 'tcp!*!'$port { export /tmp & } &
     echo --- end of profile loading ---
