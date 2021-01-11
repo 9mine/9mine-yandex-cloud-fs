@@ -152,7 +152,7 @@ fs: |
           getattr: 
             sh: *file
 
-profile: 
+profile: |
     echo --- start of profile loading ---
     load file2chan
     load std
