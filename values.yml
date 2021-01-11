@@ -20,7 +20,7 @@ securityContext:
       - SYS_ADMIN
 
 service:
-  - type: ClusterIP
+    type: ClusterIP
     port: 3000
 
 description: "yandexcloudfs" 
