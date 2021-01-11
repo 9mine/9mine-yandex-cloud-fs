@@ -152,11 +152,7 @@ fs: |
           getattr: 
             sh: *file
 
-storage: null 
-files:
- profile:
-  path: /usr/inferno-os/lib/sh/profile 
-  data: |
+profile: 
     echo --- start of profile loading ---
     load file2chan
     load std
