@@ -184,6 +184,6 @@ profile: |
         fs_port=${expr $fs_port 1 +}
         }
     
-    grid/reglisten -A -r description ${quote $NINEP_DESCRIPTION} 'tcp!*!'^$port { export /tmp & } &
+    grid/reglisten -A -r description ${quote $NINEP_DESCRIPTION} 'tcp!*!'^$port { export /tmp & }
     test -n $status && os pkill -9 emu-g
     echo --- end of profile loading ---
