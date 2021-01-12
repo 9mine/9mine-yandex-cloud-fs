@@ -164,7 +164,7 @@ profile: |
     port = $NINEP_PUBLIC_PORT
     echo $NINEP_PUBLIC_HOST > /dev/sysname 
     load mpexpr
-    fs_port = fs_port=${expr $NINEP_PUBLIC_PORT 1 +}
+    fs_port = ${expr $NINEP_PUBLIC_PORT 1 +}
     file2chan /tmp/yc {
         } {
         load mpexpr
