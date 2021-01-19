@@ -22,6 +22,10 @@ securityContext:
 service:
     type: ClusterIP
     port: 3000
+    
+ClusterIPRange:
+    from: 3001
+    to: 3020
 
 description: "yandexcloudfs" 
 
