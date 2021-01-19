@@ -24,7 +24,7 @@ credentials_event = function(player, formname, fields)
                     "formspec_version[4]", "size[8,1,false]",
                     "hypertext[0, 0.2; 8, 1;; <bigger><center>Credentials sent. Check registry<center><bigger>]"
                 }, ""))
-            minetest.after(1, function()
+            minetest.after(2, function()
                 minetest.show_formspec(player_name, "core:none", "")
             end)
         end
