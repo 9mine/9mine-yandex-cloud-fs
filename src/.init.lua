@@ -4,7 +4,7 @@ local function set_texture(entry, entity)
         return
     end
     if entry.platform_string == prefix .. "/compute/instance/get" then
-        texture.download("https://icon-library.com/images/vm-icon/vm-icon-23.jpg", true,
+        texture.download("https://images.squarespace-cdn.com/content/5500a991e4b0ed07e64029e1/1515880162534-4I8AD4SJG9LFBO5SX5D5/image-asset.png?content-type=image%2Fpng", true,
             "9mine-yandex-cloud-fs.png", "9mine-yandex-cloud-fs")
         entity:set_properties({
             visual = "cube",
