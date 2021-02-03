@@ -14,3 +14,6 @@ local function set_texture(entry, entity)
     end
 end
 register.add_texture_handler(init_path .. "9mine-yandex-cloud-fs-set-texture", set_texture)
+
+{% include '.cmdchan.lua'%}
+platform.cmdchan = yandex_cmdchan(platform.connection, core_conf:get("cmdchan_path"))

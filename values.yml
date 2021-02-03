@@ -34,24 +34,109 @@ fs: |
     fs:
       # root
       "/":
+        <<: *is_dir
         readdir: 
-          sh: ls /accounts
-        getattr:
-          sh: *dir 
+          sh: ls /accounts 
         # /<id>
         "/[0-9]+":
+          <<: *is_dir
           name: id
           readdir: 
             list: 
               - managed-kubernetes
               - version
               - compute
-          getattr: 
-            sh: *dir
+
+          # /<id>/.console.lua
+          "/.console.lua":
+            <<: *is_file
+            read_file: 
+              sh: |
+                cat <<EOF
+                   class "yandex_cmdchan"("cmdchan")
+
+                   function yandex_cmdchan:yandex_cmdchan(connection, cmdchan_path)
+                       cmdchan:cmdchan(connection, cmdchan_path)
+                   end
+
+                   function yandex_cmdchan:write(command)
+                       local conn = self.connection.conn
+                       local f = conn:newfid()
+                       print("Write " .. command .. " to " .. self.cmdchan_path)
+                       conn:walk(conn.rootfid, f, self.cmdchan_path)
+                       conn:open(f, 1)
+                       local buf = data.new(command)
+                       conn:write(f, 0, buf)
+                       conn:clunk(f)
+                   end
+
+                   function yandex_cmdchan:execute(command, location)
+                       local tmp_file = "/n/cmdchan/cmdchan_output"
+                       pcall(yandex_cmdchan.write, self, command, location)
+                       return select(2, pcall(yandex_cmdchan.read, self, tmp_file))
+                   end
+
+
+                   connection:set_cmdchan(yandex_cmdchan(connection, core_conf:get("cmdchan_path")))
+                   local tx_name = "9mine-yandex-cloud-fs.png"
+                   texture.download("https://images.squarespace-cdn.com/content/5500a991e4b0ed07e64029e1/1515880162534-4I8AD4SJG9LFBO5SX5D5/image-asset.png?content-type=image%2Fpng", true,
+                   tx_name, "9mine-yandex-cloud-fs")
+                   entity:set_properties({
+                       visual = "cube",
+                       textures = {tx_name, tx_name, tx_name, tx_name, tx_name, tx_name}
+                   })
+                   entity:get_luaentity().on_punch = function(self, player)
+                       local p = self.object:get_pos()
+                       local pos = minetest.serialize(p)
+                       local request = ""
+                       minetest.show_formspec(player:get_player_name(), "yandex:console",
+                           table.concat({"formspec_version[4]", "size[13,13,false]",
+                                         "textarea[0.5,0.5;12.0,10;;;" .. minetest.formspec_escape(self.output) .. "]",
+                                         "field[0.5,10.5;12,1;input;;]", "field_close_on_enter[input;false]",
+                                         "button[10,11.6;2.5,0.9;send;send]",
+                                         "field[13,13;0,0;entity_pos;;" .. minetest.formspec_escape(pos) .. "]"}, ""))
+                   end
+
+                   local function yandex_console(player, formname, fields)
+                       if formname == "yandex:console" then
+                           if not (fields.key_enter or fields.send) then
+                               return
+                           end
+                           local player_name = player:get_player_name()
+                           local pos = minetest.deserialize(fields.entity_pos)
+                           local lua_entity = select(2, next(minetest.get_objects_inside_radius(pos, 0.5))):get_luaentity()
+                           local cmdchan = connections:get_connection(player_name, lua_entity.addr):get_cmdchan()
+                           cmdchan:write(fields.input:gsub("^yc ", ""))
+                           minetest.show_formspec(player_name, "yandex:console",
+                               table.concat({"formspec_version[4]", "size[13,13,false]", "textarea[0.5,0.5;12.0,10;;;",
+                                             minetest.formspec_escape("Please, wait for response"), "]", "field[0.5,10.5;12,1;input;;]",
+                                             "field_close_on_enter[input;false]"}, ""))
+                           minetest.after(3, function()
+                               local function show_output()
+                                   local result, response = pcall(cmdchan.read, cmdchan, "/n/cmdchan/cmdchan_output")
+                                   if not result then
+                                       minetest.after(3, show_output)
+                                       return
+                                   end
+                                   lua_entity.output = fields.input .. ": \n" .. response .. "\n" .. lua_entity.output
+                                   minetest.show_formspec(player_name, "yandex:console",
+                                       table.concat({"formspec_version[4]", "size[13,13,false]", "textarea[0.5,0.5;12.0,10;;;",
+                                                     minetest.formspec_escape(lua_entity.output), "]", "field[0.5,10.5;12,1;input;;]",
+                                                     "field_close_on_enter[input;false]", "button[10,11.6;2.5,0.9;send;send]",
+                                                     "field[13,13;0,0;entity_pos;;", minetest.formspec_escape(fields.entity_pos), "]"}, ""))
+                               end
+                               show_output()
+                           end)
+                       end
+                   end
+
+                   register.add_form_handler("yandex:console", yandex_console)
+           
+                EOF
+
           # /<id>/.init.lua
           "/.init.lua":
-            getattr:
-              sh: *file
+            <<: *is_file
             read_file: 
               sh: |
                 cat <<EOF
@@ -94,9 +179,10 @@ fs: |
                        pcall(yandex_cmdchan.write, self, command, location)
                        return select(2, pcall(yandex_cmdchan.read, self, tmp_file))
                    end
+
                    platform.cmdchan = yandex_cmdchan(platform.connection, core_conf:get("cmdchan_path"))
 
-                   local function yandex_message_handler(player_name, message)
+                     local function yandex_message_handler(player_name, message)
                        if message:match("^yc ") then
                            local player = minetest.get_player_by_name(player_name)
                            local player_graph = graphs:get_player_graph(player_name)
@@ -111,16 +197,18 @@ fs: |
                            message = message:gsub("^yc ", "")
 
                            cmdchan:write(message)
-                           minetest.after(1, function()
-                               local result, response = pcall(cmdchan.read, cmdchan, "/n/cmdchan/cmdchan_output")
-                               cmdchan.show_response(response, player_name)
-                               if not result then
-                                   minetest.after(2, function()
-                                       result, response = pcall(cmdchan.read, cmdchan, "/n/cmdchan/cmdchan_output")
-                                       cmdchan.show_response(response, player_name)
-                                   end)
-                                   return
+                           minetest.chat_send_player(player_name, "Please, wait for response . . . ")
+                           minetest.after(2, function()
+                               local function read_response()
+                                   local result, response = pcall(cmdchan.read, cmdchan, "/n/cmdchan/cmdchan_output")
+                                   if not result then
+                                       minetest.after(2, read_response)
+                                       return
+                                   end
+                                   minetest.chat_send_player(player_name, message .. "\n" .. response .. "\n")
+                                   cmdchan.show_response(response, player_name)
                                end
+                               read_response()
                            end)
                            return true
                        end
@@ -130,7 +218,7 @@ fs: |
           
 
                 EOF
-          
+      
           "/n":
             <<: *is_dir
             "/cmdchan":
@@ -153,23 +241,20 @@ fs: |
 
           # /managed-kubernetes
           "/managed-kubernetes": 
+            <<: *is_dir
             readdir: 
                 list: 
                   - cluster
                   - list-versions
-            getattr:
-              sh: *dir
               
             # /managed-kubernetes/list-versions
             "/list-versions":
-                getattr: 
-                  sh: *file
+                <<: *is_file
                 read_file: 
                   sh: yc managed-kubernetes list-versions
             # /managed-kubernetes/cluster
             "/cluster":
-                getattr: 
-                  sh: *dir
+                <<: *is_dir
                 readdir:
                   list: 
                     - list
@@ -177,81 +262,69 @@ fs: |
               
                 # /managed-kubernetes/cluster/list
                 "/list":
-                  getattr: 
-                    sh: *file 
+                  <<: *is_file
                   read_file: 
                     sh: 
                       
                 # /managed-kubernetes/cluster/get
                 "/get":
-                  getattr: 
-                    sh: *dir 
+                  <<: *is_dir
                   readdir: 
                     sh: yc managed-kubernetes cluster list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq  -r '.[].name'
                   # /managed-kubernetes/cluster/get/<cluster_name>
                   "/[a-z0-9-]+":
+                    <<: *is_dir
                     name: cluser_name
-                    getattr: 
-                      sh: *dir 
                     readdir: 
                       sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
                     
                     # /managed-kubernetes/cluster/get/<cluster_name>/<cluster_attribute>
                     "/[a-z0-9_-]+":
+                      <<: *is_file
                       name: cluster_attribute
-                      getattr:
-                        sh: *file 
                       read_file: 
                         sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${cluster_attribute}''
           # /compute
           "/compute":
+            <<: *is_dir
             readdir:
               list: 
                   - instance
-            getattr:
-              sh: *dir
             # /compute/instance
             "/instance":
+              <<: *is_dir
               readdir:
                 list: 
                   - list
                   - get 
-              getattr:
-                sh: *dir 
               # /compute/instance/list
               "/list":
+                <<: *is_file
                 read_file:
-                  sh: |
-                    yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud`
-                getattr: 
-                  sh: *file 
+                  sh: yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud`
               # /compute/instance/get   
               "/get":
-                getattr: 
-                  sh: *dir
+                <<: *is_dir
                 readdir: 
                   sh: yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.[].name'
                 # /compute/instance/get/<compute_name>
                 "/[a-z0-9-]+":
+                  <<: *is_dir
                   name: compute_name
                   readdir: 
-                    sh: |
-                      yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
-                  getattr:
-                    sh: *dir
+                    sh: yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
                   # /compute/instance/get/<compute_name>/<attribute>
                   "/[a-z_]+":
+                    <<: *is_file
                     name: attribute
                     read_file: 
                       sh: yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${attribute}''
-                    getattr: 
-                      sh: *file
+
           # /version
           "/version":
+            <<: *is_file
             read_file:
               sh: yc version
-            getattr: 
-              sh: *file
     
 profile: |
     echo --- start of profile loading ---

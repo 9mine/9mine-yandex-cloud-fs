@@ -20,4 +20,3 @@ function yandex_cmdchan:execute(command, location)
     pcall(yandex_cmdchan.write, self, command, location)
     return select(2, pcall(yandex_cmdchan.read, self, tmp_file))
 end
-platform.cmdchan = yandex_cmdchan(platform.connection, core_conf:get("cmdchan_path"))

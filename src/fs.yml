@@ -2,36 +2,43 @@
 fs:
   # root
   "/":
+    <<: *is_dir
     readdir: 
-      sh: ls /accounts
-    getattr:
-      sh: *dir 
+      sh: ls /accounts 
     # /<id>
     "/[0-9]+":
+      <<: *is_dir
       name: id
       readdir: 
         list: 
           - managed-kubernetes
           - version
           - compute
-      getattr: 
-        sh: *dir
-      # /<id>/.init.lua
-      "/.init.lua":
-        getattr:
-          sh: *file
+
+      # /<id>/.console.lua
+      "/.console.lua":
+        <<: *is_file
         read_file: 
           sh: |
             cat <<EOF
 {% filter indent(15, first=True) -%}
-                  {% include '.init.lua'%}
+  {% include '.console.lua'%}
+{%- endfilter %}       
+            EOF
 
-{% include '.cmdchan.lua'%}
-{% include '.message_handler.lua'%}
-                  {%- endfilter %}      
+      # /<id>/.init.lua
+      "/.init.lua":
+        <<: *is_file
+        read_file: 
+          sh: |
+            cat <<EOF
+{% filter indent(15, first=True) -%}
+  {% include '.init.lua'%}
+  {% include '.message_handler.lua'%}
+{%- endfilter %}      
 
             EOF
-      
+  
       "/n":
         <<: *is_dir
         "/cmdchan":
@@ -54,23 +61,20 @@ fs:
 
       # /managed-kubernetes
       "/managed-kubernetes": 
+        <<: *is_dir
         readdir: 
             list: 
               - cluster
               - list-versions
-        getattr:
-          sh: *dir
           
         # /managed-kubernetes/list-versions
         "/list-versions":
-            getattr: 
-              sh: *file
+            <<: *is_file
             read_file: 
               sh: yc managed-kubernetes list-versions
         # /managed-kubernetes/cluster
         "/cluster":
-            getattr: 
-              sh: *dir
+            <<: *is_dir
             readdir:
               list: 
                 - list
@@ -78,78 +82,66 @@ fs:
           
             # /managed-kubernetes/cluster/list
             "/list":
-              getattr: 
-                sh: *file 
+              <<: *is_file
               read_file: 
                 sh: 
                   
             # /managed-kubernetes/cluster/get
             "/get":
-              getattr: 
-                sh: *dir 
+              <<: *is_dir
               readdir: 
                 sh: yc managed-kubernetes cluster list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq  -r '.[].name'
               # /managed-kubernetes/cluster/get/<cluster_name>
               "/[a-z0-9-]+":
+                <<: *is_dir
                 name: cluser_name
-                getattr: 
-                  sh: *dir 
                 readdir: 
                   sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
                 
                 # /managed-kubernetes/cluster/get/<cluster_name>/<cluster_attribute>
                 "/[a-z0-9_-]+":
+                  <<: *is_file
                   name: cluster_attribute
-                  getattr:
-                    sh: *file 
                   read_file: 
                     sh: yc managed-kubernetes cluster get --name="${cluser_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${cluster_attribute}''
       # /compute
       "/compute":
+        <<: *is_dir
         readdir:
           list: 
               - instance
-        getattr:
-          sh: *dir
         # /compute/instance
         "/instance":
+          <<: *is_dir
           readdir:
             list: 
               - list
               - get 
-          getattr:
-            sh: *dir 
           # /compute/instance/list
           "/list":
+            <<: *is_file
             read_file:
-              sh: |
-                yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud`
-            getattr: 
-              sh: *file 
+              sh: yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud`
           # /compute/instance/get   
           "/get":
-            getattr: 
-              sh: *dir
+            <<: *is_dir
             readdir: 
               sh: yc compute instance list --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.[].name'
             # /compute/instance/get/<compute_name>
             "/[a-z0-9-]+":
+              <<: *is_dir
               name: compute_name
               readdir: 
-                sh: |
-                  yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
-              getattr:
-                sh: *dir
+                sh: yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r 'keys[]'
               # /compute/instance/get/<compute_name>/<attribute>
               "/[a-z_]+":
+                <<: *is_file
                 name: attribute
                 read_file: 
                   sh: yc compute instance get --name "${compute_name}" --token=`cat /accounts/${id}/token` --folder-id=`cat /accounts/${id}/folder` --cloud-id=`cat /accounts/${id}/cloud` --format=json | jq -r '.'${attribute}''
-                getattr: 
-                  sh: *file
+
       # /version
       "/version":
+        <<: *is_file
         read_file:
           sh: yc version
-        getattr: 
-          sh: *file
