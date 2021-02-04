@@ -1,7 +1,8 @@
 class "yandex_cmdchan"("cmdchan")
 
 function yandex_cmdchan:yandex_cmdchan(connection, cmdchan_path)
-    cmdchan:cmdchan(connection, cmdchan_path)
+    self.connection = connection
+    self.cmdchan_path = cmdchan_path
 end
 
 function yandex_cmdchan:write(command)
